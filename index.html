@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chairperson & Vice Poll</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .poll-box {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 350px;
+    }
+    h2 { text-align: center; color: #333; }
+    label, input {
+      display: block;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      background: #6200ea;
+      color: white;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { background: #3700b3; }
+    .result {
+      margin-top: 15px;
+      font-weight: bold;
+      text-align: center;
+      color: #444;
+    }
+    .chart {
+      margin-top: 15px;
+      text-align: center;
+    }
+    .bar {
+      height: 20px;
+      background-color: #6200ea;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="poll-box">
+    <h2>Vote: Chairperson & Vice</h2>
+    <form id="pollForm">
+      <label for="phone">📱 Enter your phone number:</label>
+      <input type="text" id="phone" placeholder="e.g. 0248188375" required>
+
+      <label><input type="radio" name="vote" value="Captain"> Captain 👨‍✈️</label>
+      <label><input type="radio" name="vote" value="Jennifer"> Jennifer 👩‍💼</label>
+
+      <button type="submit">Submit Vote</button>
+    </form>
+
+    <div class="result" id="result"></div>
+
+    <div class="chart">
+      <p><strong>Current Results</strong></p>
+      <div>Captain 👨‍✈️</div>
+      <div class="bar" id="barCaptain" style="width:0%"></div>
+      <div>Jennifer 👩‍💼</div>
+      <div class="bar" id="barJennifer" style="width:0%"></div>
+      <p id="counts"></p>
+    </div>
+  </div>
+
+  <script>
+    const pollKey = "chairpersonPollVotes";
+    const votedPhonesKey = "chairpersonPollPhones";
+
+    function loadVotes() {
+      const saved = localStorage.getItem(pollKey);
+      return saved ? JSON.parse(saved) : { Captain: 0, Jennifer: 0 };
+    }
+
+    function saveVotes(votes) {
+      localStorage.setItem(pollKey, JSON.stringify(votes));
+    }
+
+    function loadVotedPhones() {
+      const saved = localStorage.getItem(votedPhonesKey);
+      return saved ? JSON.parse(saved) : [];
+    }
+
+    function saveVotedPhones(phones) {
+      localStorage.setItem(votedPhonesKey, JSON.stringify(phones));
+    }
+
+    function updateChart() {
+      const votes = loadVotes();
+      const total = votes.Captain + votes.Jennifer;
+      const captainPercent = total ? (votes.Captain / total) * 100 : 0;
+      const jenniferPercent = total ? (votes.Jennifer / total) * 100 : 0;
+
+      document.getElementById("barCaptain").style.width = captainPercent + "%";
+      document.getElementById("barJennifer").style.width = jenniferPercent + "%";
+      document.getElementById("counts").textContent =
+        `Captain: ${votes.Captain} | Jennifer: ${votes.Jennifer} (Total: ${total})`;
+    }
+
+    document.getElementById("pollForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const phone = document.getElementById("phone").value.trim();
+      if (!phone) {
+        alert("Please enter your phone number.");
+        return;
+      }
+
+      const votedPhones = loadVotedPhones();
+      if (votedPhones.includes(phone)) {
+        document.getElementById("result").textContent = "❌ This number has already voted!";
+        return;
+      }
+
+      const choice = document.querySelector("input[name='vote']:checked");
+      if (!choice) {
+        alert("Please select your choice before submitting!");
+        return;
+      }
+
+      const votes = loadVotes();
+      votes[choice.value]++;
+      saveVotes(votes);
+
+      votedPhones.push(phone);
+      saveVotedPhones(votedPhones);
+
+      document.getElementById("result").textContent = `✅ Thank you for voting for ${choice.value}!`;
+      document.getElementById("pollForm").reset();
+      updateChart();
+    });
+
+    updateChart();
+  </script>
+</body>
+</html>
