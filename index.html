@@ -94,7 +94,7 @@
     <button onclick="viewResults()">View Results</button>
 
     <div id="chartContainer" class="chart" style="display:none;">
-      <h3>📊 Live Results</h3>
+      <h3> Live Results</h3>
       <div>Captain 👨‍✈️</div>
       <div class="bar" id="barCaptain" style="width:0%">0%</div>
       <div>Jennifer 👩‍💼</div>
@@ -105,7 +105,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby8jF4lbC21r4HUOUwjZnNVqhn9m496JwpDpSh6R61igadkU0RthU9-6ns8WjutdZibUg/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzmemqFKV6rphqW5Zt1vw-gXPvji5bsciWXyggN41FNLsuCUdfU-euTpBBnF2g_Ctsv/exec"; 
     const PASSWORD = "mzigo123";
 
     // Submit vote
@@ -128,8 +128,8 @@
       try {
         const res = await fetch(SCRIPT_URL, {
           method: "POST",
-          body: JSON.stringify({ phone, choice: choice.value }),
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone, choice: choice.value })
         });
         const data = await res.json();
 
@@ -137,6 +137,8 @@
           document.getElementById("result").textContent = `✅ Thank you for voting for ${choice.value}!`;
           localStorage.setItem("voted_" + phone, "true");
           document.getElementById("pollForm").reset();
+        } else if (data.status === "duplicate") {
+          document.getElementById("result").textContent = "❌ You have already voted!";
         } else {
           document.getElementById("result").textContent = "❌ Error submitting vote.";
         }
