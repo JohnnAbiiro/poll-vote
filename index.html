@@ -4,16 +4,146 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chairperson & Vice Poll</title>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    // ✅ Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCzqJbztDbWu-TfKVfRdpTnYR2qwog6vzk",
+      authDomain: "johnnyy-56cc5.firebaseapp.com",
+      projectId: "johnnyy-56cc5",
+      storageBucket: "johnnyy-56cc5.firebasestorage.app",
+      messagingSenderId: "174060785486",
+      appId: "1:174060785486:web:e12f3116596c94d2d9181f",
+      measurementId: "G-QC26GK8N76"
+    };
+
+    // ✅ Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const PASSWORD = "mzigo123"; // admin password
+
+    // 🟩 Submit vote
+    window.submitVote = async function (e) {
+      e.preventDefault();
+      const phone = document.getElementById("phone").value.trim();
+      const choice = document.querySelector("input[name='vote']:checked");
+      const resultEl = document.getElementById("result");
+
+      if (!phone || !choice) {
+        resultEl.textContent = "❌ Please enter phone number and select a choice.";
+        return;
+      }
+
+      try {
+        const ref = doc(db, "votes", phone);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          resultEl.textContent = "❌ This number has already voted!";
+          return;
+        }
+
+        await setDoc(ref, {
+          phone,
+          choice: choice.value,
+          timestamp: new Date().toISOString(),
+        });
+
+        resultEl.textContent = `✅ Thank you for voting for ${choice.value}!`;
+        document.getElementById("pollForm").reset();
+      } catch (err) {
+        console.error(err);
+        resultEl.textContent = "⚠️ Network error. Try again.";
+      }
+    };
+
+    // 🟦 View results (password protected)
+    window.viewResults = async function () {
+      const pass = prompt("Enter password to view results:");
+      if (pass !== PASSWORD) {
+        alert("❌ Wrong password");
+        return;
+      }
+
+      try {
+        const querySnap = await getDocs(collection(db, "votes"));
+        let counts = { Captain: 0, Jennifer: 0 };
+        querySnap.forEach((doc) => {
+          const v = doc.data().choice;
+          if (counts[v] !== undefined) counts[v]++;
+        });
+
+        const total = counts.Captain + counts.Jennifer;
+        const capPercent = total ? ((counts.Captain / total) * 100).toFixed(1) : 0;
+        const jenPercent = total ? ((counts.Jennifer / total) * 100).toFixed(1) : 0;
+
+        document.getElementById("chartContainer").style.display = "block";
+        document.getElementById("barCaptain").style.width = capPercent + "%";
+        document.getElementById("barJennifer").style.width = jenPercent + "%";
+        document.getElementById("barCaptain").textContent = `${capPercent}%`;
+        document.getElementById("barJennifer").textContent = `${jenPercent}%`;
+        document.getElementById("counts").textContent =
+          `Captain: ${counts.Captain} | Jennifer: ${counts.Jennifer} | Total: ${total}`;
+      } catch (err) {
+        console.error(err);
+        alert("⚠️ Error fetching results.");
+      }
+    };
+
+    // 🟨 Download CSV
+    window.downloadCSV = async function () {
+      try {
+        const querySnap = await getDocs(collection(db, "votes"));
+        let csv = "Phone,Choice,Time\n";
+        querySnap.forEach((doc) => {
+          const v = doc.data();
+          csv += `${v.phone},${v.choice},${v.timestamp}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "poll_results.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("⚠️ Error downloading CSV.");
+      }
+    };
+
+    // 🟥 Admin: Reset votes
+    window.resetVotes = async function () {
+      const pass = prompt("Enter admin password to reset votes:");
+      if (pass !== PASSWORD) {
+        alert("❌ Wrong password");
+        return;
+      }
+
+      if (!confirm("⚠️ Are you sure you want to delete all votes?")) return;
+
+      try {
+        const querySnap = await getDocs(collection(db, "votes"));
+        for (const docSnap of querySnap.docs) {
+          await deleteDoc(docSnap.ref);
+        }
+        alert("✅ All votes cleared!");
+        location.reload();
+      } catch (err) {
+        console.error(err);
+        alert("⚠️ Failed to reset votes.");
+      }
+    };
+  </script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(135deg, #ede7f6, #d1c4e9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; margin: 0; padding: 20px;
     }
     .poll-box {
       background: white;
@@ -24,183 +154,48 @@
       text-align: center;
     }
     h2 { color: #4a148c; }
-    label, input {
-      display: block;
-      margin: 10px 0;
-      font-size: 16px;
-      text-align: left;
-    }
     input[type="text"] {
-      width: 100%;
-      padding: 8px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc;
     }
     button {
-      width: 100%;
-      background: #6200ea;
-      color: white;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
+      width: 100%; background: #6200ea; color: white; padding: 10px;
+      border: none; border-radius: 8px; font-size: 16px; cursor: pointer;
       margin-top: 10px;
     }
     button:hover { background: #3700b3; }
-    .result {
-      margin-top: 15px;
-      font-weight: bold;
-      color: #444;
-    }
-    .chart {
-      margin-top: 25px;
-      text-align: center;
-    }
     .bar {
-      height: 30px;
-      background: #7e57c2;
-      border-radius: 5px;
-      margin: 8px 0;
-      transition: width 0.6s ease;
-      color: white;
-      line-height: 30px;
-      font-weight: bold;
+      height: 30px; background: #7e57c2; border-radius: 5px; margin: 8px 0;
+      color: white; line-height: 30px; font-weight: bold; transition: width 0.6s ease;
     }
-    #downloadBtn {
-      background: #388e3c;
-      margin-top: 12px;
-    }
-    #downloadBtn:hover {
-      background: #1b5e20;
-    }
+    #downloadBtn { background: #388e3c; margin-top: 12px; }
+    #resetBtn { background: #d32f2f; margin-top: 12px; }
   </style>
 </head>
+
 <body>
   <div class="poll-box">
     <h2>Vote: Chairperson & Vice</h2>
-
-    <form id="pollForm">
-      <label for="phone">📱 Enter your phone number:</label>
+    <form id="pollForm" onsubmit="submitVote(event)">
+      <label>📱 Enter your phone number:</label>
       <input type="text" id="phone" placeholder="e.g. 0248188375" required>
-
       <label><input type="radio" name="vote" value="Captain"> Captain 👨‍✈️</label>
       <label><input type="radio" name="vote" value="Jennifer"> Jennifer 👩‍💼</label>
-
       <button type="submit">Submit Vote</button>
     </form>
 
-    <div class="result" id="result"></div>
+    <div id="result"></div>
     <button onclick="viewResults()">View Results</button>
 
-    <div id="chartContainer" class="chart" style="display:none;">
-      <h3> Live Results</h3>
+    <div id="chartContainer" style="display:none;">
+      <h3>Live Results</h3>
       <div>Captain 👨‍✈️</div>
       <div class="bar" id="barCaptain" style="width:0%">0%</div>
       <div>Jennifer 👩‍💼</div>
       <div class="bar" id="barJennifer" style="width:0%">0%</div>
       <p id="counts"></p>
       <button id="downloadBtn" onclick="downloadCSV()">⬇️ Download CSV</button>
+      <button id="resetBtn" onclick="resetVotes()">🗑 Reset Votes</button>
     </div>
   </div>
-
-  <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyHNKqxwF9UgICAgp3QR8Qy-pIOj0k-BseBF9Yvb20pjSdoEzTESMM_YrQWiWRNmdPM8A/exec"; 
-    const PASSWORD = "mzigo123";
-
-    // Submit vote
-    document.getElementById("pollForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      const phone = document.getElementById("phone").value.trim();
-      const choice = document.querySelector("input[name='vote']:checked");
-
-      if (!phone || !choice) {
-        alert("Please enter phone number and select a choice.");
-        return;
-      }
-
-      if (localStorage.getItem("voted_" + phone)) {
-        document.getElementById("result").textContent = "❌ This number has already voted!";
-        return;
-      }
-
-      try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone, choice: choice.value })
-        });
-        const data = await res.json();
-
-        if (data.status === "success") {
-          document.getElementById("result").textContent = `✅ Thank you for voting for ${choice.value}!`;
-          localStorage.setItem("voted_" + phone, "true");
-          document.getElementById("pollForm").reset();
-        } else if (data.status === "duplicate") {
-          document.getElementById("result").textContent = "❌ You have already voted!";
-        } else {
-          document.getElementById("result").textContent = "❌ Error submitting vote.";
-        }
-      } catch (err) {
-        document.getElementById("result").textContent = "⚠️ Network error. Try again.";
-      }
-    });
-
-    // View results (password-protected)
-    async function viewResults() {
-      const pass = prompt("Enter password to view results:");
-      if (pass !== PASSWORD) {
-        alert("❌ Wrong password");
-        return;
-      }
-
-      try {
-        const res = await fetch(SCRIPT_URL + "?action=getResults");
-        const data = await res.json();
-
-        if (data.status === "success") {
-          document.getElementById("chartContainer").style.display = "block";
-
-          const captain = data.results.Captain || 0;
-          const jennifer = data.results.Jennifer || 0;
-          const total = captain + jennifer;
-
-          const capPercent = total ? ((captain / total) * 100).toFixed(1) : 0;
-          const jenPercent = total ? ((jennifer / total) * 100).toFixed(1) : 0;
-
-          document.getElementById("barCaptain").style.width = capPercent + "%";
-          document.getElementById("barJennifer").style.width = jenPercent + "%";
-          document.getElementById("barCaptain").textContent = `${capPercent}%`;
-          document.getElementById("barJennifer").textContent = `${jenPercent}%`;
-
-          document.getElementById("counts").textContent =
-            `Captain: ${captain} | Jennifer: ${jennifer} | Total: ${total}`;
-        } else {
-          alert("❌ Could not load results.");
-        }
-      } catch (err) {
-        alert("⚠️ Error fetching results.");
-      }
-    }
-
-    // Download CSV
-    async function downloadCSV() {
-      try {
-        const res = await fetch(SCRIPT_URL + "?action=downloadCSV");
-        const csvText = await res.text();
-
-        const blob = new Blob([csvText], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "poll_results.csv";
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        alert("⚠️ Error downloading CSV.");
-      }
-    }
-  </script>
 </body>
 </html>
