@@ -7,25 +7,34 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
+      background: linear-gradient(135deg, #ede7f6, #d1c4e9);
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
       margin: 0;
+      padding: 20px;
     }
     .poll-box {
       background: white;
       padding: 25px;
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      width: 350px;
+      width: 360px;
+      text-align: center;
     }
-    h2 { text-align: center; color: #333; }
+    h2 { color: #4a148c; }
     label, input {
       display: block;
       margin: 10px 0;
       font-size: 16px;
+      text-align: left;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
     }
     button {
       width: 100%;
@@ -36,30 +45,41 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      margin-top: 10px;
     }
     button:hover { background: #3700b3; }
     .result {
       margin-top: 15px;
       font-weight: bold;
-      text-align: center;
       color: #444;
     }
     .chart {
-      margin-top: 15px;
+      margin-top: 25px;
       text-align: center;
     }
     .bar {
-      height: 20px;
-      background-color: #6200ea;
+      height: 30px;
+      background: #7e57c2;
       border-radius: 5px;
-      margin-bottom: 8px;
-      transition: width 0.3s ease;
+      margin: 8px 0;
+      transition: width 0.6s ease;
+      color: white;
+      line-height: 30px;
+      font-weight: bold;
+    }
+    #downloadBtn {
+      background: #388e3c;
+      margin-top: 12px;
+    }
+    #downloadBtn:hover {
+      background: #1b5e20;
     }
   </style>
 </head>
 <body>
   <div class="poll-box">
     <h2>Vote: Chairperson & Vice</h2>
+
     <form id="pollForm">
       <label for="phone">📱 Enter your phone number:</label>
       <input type="text" id="phone" placeholder="e.g. 0248188375" required>
@@ -71,84 +91,114 @@
     </form>
 
     <div class="result" id="result"></div>
+    <button onclick="viewResults()">View Results</button>
 
-    <div class="chart">
-      <p><strong>Current Results</strong></p>
+    <div id="chartContainer" class="chart" style="display:none;">
+      <h3>📊 Live Results</h3>
       <div>Captain 👨‍✈️</div>
-      <div class="bar" id="barCaptain" style="width:0%"></div>
+      <div class="bar" id="barCaptain" style="width:0%">0%</div>
       <div>Jennifer 👩‍💼</div>
-      <div class="bar" id="barJennifer" style="width:0%"></div>
+      <div class="bar" id="barJennifer" style="width:0%">0%</div>
       <p id="counts"></p>
+      <button id="downloadBtn" onclick="downloadCSV()">⬇️ Download CSV</button>
     </div>
   </div>
 
   <script>
-    const pollKey = "chairpersonPollVotes";
-    const votedPhonesKey = "chairpersonPollPhones";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby8jF4lbC21r4HUOUwjZnNVqhn9m496JwpDpSh6R61igadkU0RthU9-6ns8WjutdZibUg/exec";
+    const PASSWORD = "mzigo123";
 
-    function loadVotes() {
-      const saved = localStorage.getItem(pollKey);
-      return saved ? JSON.parse(saved) : { Captain: 0, Jennifer: 0 };
-    }
-
-    function saveVotes(votes) {
-      localStorage.setItem(pollKey, JSON.stringify(votes));
-    }
-
-    function loadVotedPhones() {
-      const saved = localStorage.getItem(votedPhonesKey);
-      return saved ? JSON.parse(saved) : [];
-    }
-
-    function saveVotedPhones(phones) {
-      localStorage.setItem(votedPhonesKey, JSON.stringify(phones));
-    }
-
-    function updateChart() {
-      const votes = loadVotes();
-      const total = votes.Captain + votes.Jennifer;
-      const captainPercent = total ? (votes.Captain / total) * 100 : 0;
-      const jenniferPercent = total ? (votes.Jennifer / total) * 100 : 0;
-
-      document.getElementById("barCaptain").style.width = captainPercent + "%";
-      document.getElementById("barJennifer").style.width = jenniferPercent + "%";
-      document.getElementById("counts").textContent =
-        `Captain: ${votes.Captain} | Jennifer: ${votes.Jennifer} (Total: ${total})`;
-    }
-
-    document.getElementById("pollForm").addEventListener("submit", (e) => {
+    // Submit vote
+    document.getElementById("pollForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+
       const phone = document.getElementById("phone").value.trim();
-      if (!phone) {
-        alert("Please enter your phone number.");
+      const choice = document.querySelector("input[name='vote']:checked");
+
+      if (!phone || !choice) {
+        alert("Please enter phone number and select a choice.");
         return;
       }
 
-      const votedPhones = loadVotedPhones();
-      if (votedPhones.includes(phone)) {
+      if (localStorage.getItem("voted_" + phone)) {
         document.getElementById("result").textContent = "❌ This number has already voted!";
         return;
       }
 
-      const choice = document.querySelector("input[name='vote']:checked");
-      if (!choice) {
-        alert("Please select your choice before submitting!");
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ phone, choice: choice.value }),
+          headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+
+        if (data.status === "success") {
+          document.getElementById("result").textContent = `✅ Thank you for voting for ${choice.value}!`;
+          localStorage.setItem("voted_" + phone, "true");
+          document.getElementById("pollForm").reset();
+        } else {
+          document.getElementById("result").textContent = "❌ Error submitting vote.";
+        }
+      } catch (err) {
+        document.getElementById("result").textContent = "⚠️ Network error. Try again.";
+      }
+    });
+
+    // View results (password-protected)
+    async function viewResults() {
+      const pass = prompt("Enter password to view results:");
+      if (pass !== PASSWORD) {
+        alert("❌ Wrong password");
         return;
       }
 
-      const votes = loadVotes();
-      votes[choice.value]++;
-      saveVotes(votes);
+      try {
+        const res = await fetch(SCRIPT_URL + "?action=getResults");
+        const data = await res.json();
 
-      votedPhones.push(phone);
-      saveVotedPhones(votedPhones);
+        if (data.status === "success") {
+          document.getElementById("chartContainer").style.display = "block";
 
-      document.getElementById("result").textContent = `✅ Thank you for voting for ${choice.value}!`;
-      document.getElementById("pollForm").reset();
-      updateChart();
-    });
+          const captain = data.results.Captain || 0;
+          const jennifer = data.results.Jennifer || 0;
+          const total = captain + jennifer;
 
-    updateChart();
+          const capPercent = total ? ((captain / total) * 100).toFixed(1) : 0;
+          const jenPercent = total ? ((jennifer / total) * 100).toFixed(1) : 0;
+
+          document.getElementById("barCaptain").style.width = capPercent + "%";
+          document.getElementById("barJennifer").style.width = jenPercent + "%";
+          document.getElementById("barCaptain").textContent = `${capPercent}%`;
+          document.getElementById("barJennifer").textContent = `${jenPercent}%`;
+
+          document.getElementById("counts").textContent =
+            `Captain: ${captain} | Jennifer: ${jennifer} | Total: ${total}`;
+        } else {
+          alert("❌ Could not load results.");
+        }
+      } catch (err) {
+        alert("⚠️ Error fetching results.");
+      }
+    }
+
+    // Download CSV
+    async function downloadCSV() {
+      try {
+        const res = await fetch(SCRIPT_URL + "?action=downloadCSV");
+        const csvText = await res.text();
+
+        const blob = new Blob([csvText], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "poll_results.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("⚠️ Error downloading CSV.");
+      }
+    }
   </script>
 </body>
 </html>
